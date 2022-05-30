@@ -5,7 +5,7 @@ pd.set_option('display.max_columns', None)
 #Aşağıdaki kod çıktılarda ki sayısal değerlerin kaç decimal gözükmesini ayarlar
 pd.set_option('display.float_format', lambda x : '%.3f' % x)
 
-df_ = pd.read_excel('crm_analytics/online_retail_II.xlsx', sheet_name="Year 2009-2010")
+df_ = pd.read_excel('online_retail_II.xlsx', sheet_name="Year 2009-2010")
 df = df_.copy()
 df.head()
 df.shape
