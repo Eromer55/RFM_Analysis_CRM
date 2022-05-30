@@ -5,10 +5,17 @@ pd.set_option('display.max_columns', None)
 #Aşağıdaki kod çıktılarda ki sayısal değerlerin kaç decimal gözükmesini ayarlar
 pd.set_option('display.float_format', lambda x : '%.3f' % x)
 
+##############################################################################################
+# 1.Veriyi Anlama
+###############################################################################################
+
 df_ = pd.read_excel('online_retail_II.xlsx', sheet_name="Year 2009-2010")
 df = df_.copy()
 df.head()
-df.shape
+
+df.shape # Satır - Sutün sayısını öğrenmek için kullanıyoruz.
+df.info() # veri setimiz hakkında bilgi edinmek için kullanıyoruz.
+df.describe().T # sayısal değişkenlerimiz hakkında kısaca bir istatistiksel özet almak için kullanıyoruz.
 df.isnull().sum()
 
 #Eşsiz Ürün Sayısı Nedir ?
@@ -24,29 +31,24 @@ df['Invoice'].nunique()
 
 # Fatura Başına toplam ne kadar tutar oluyor ?
 df['Total_Price'] = df['Quantity'] * df['Price']
-df.head()
 df.groupby('Invoice').agg({'Total_Price': 'sum'}).head()
 
 ##############################################################################################
-# 3.Veriyi Hazırlama
+# 2.Veriyi Hazırlama
 ###############################################################################################
 
-df.shape
 df.isnull().sum()
 df.dropna(inplace=True)
 df.shape
 
 # İade edilen faturaları çıkartalım
-
 df = df[~df['Invoice'].str.contains("C", na=False)]
 
 ##############################################################################################
-# 4. RFM Metriklerinin Hesaplanması
+# 3. RFM Metriklerinin Hesaplanması
 ###############################################################################################
 
 # RFM ; Recency, Frequency, Monetary
-
-df.head()
 
 # Son işlem gününe bakalım ve ondan sonraki bir güne today diyelim.
 df['InvoiceDate'].max()
@@ -57,33 +59,26 @@ type(today_date)
 rfm = df.groupby('Customer ID').agg({'InvoiceDate': lambda date: (today_date - date.max()).days,
                                     'Invoice': lambda num: num.nunique(),
                                     'Total_Price': lambda Total_Price: Total_Price.sum()})
-rfm.head()
 
 rfm.columns = ['recency','frequency','monetary']
 rfm.describe().T
 
 #decribe sonrası gördük ki monetary min değeri 0 idi. 0 lardan kurtulmamız gerekiyor.
-
 rfm = rfm[rfm['monetary'] > 0]
 rfm.describe().T
 
-rfm.shape
-
 ##############################################################################################
-# 5. RFM Skorlarının Hesaplanması
+# 4. RFM Skorlarının Hesaplanması
 ###############################################################################################
 
 rfm["recency_score"] = pd.qcut(rfm['recency'], 5, labels=[5, 4, 3, 2, 1])
 rfm["frequency_score"] = pd.qcut(rfm['frequency'].rank(method="first"), 5, labels=[1, 2, 3, 4, 5])
 rfm["monetary_score"] = pd.qcut(rfm['monetary'], 5, labels=[1, 2, 3, 4, 5])
-rfm.head()
 
-rfm["RFM_SCORE"] = (rfm['recency_score'].astype(str) + rfm['frequency_score'].astype(str))
-
-rfm[rfm["RFM_SCORE"] == "55"]
+rfm["RF_SCORE"] = (rfm['recency_score'].astype(str) + rfm['frequency_score'].astype(str))
 
 ##############################################################################################
-# 6. RFM Segmentlerinin Oluşturulması ve Analiz Edilmesi
+# 5. RFM Segmentlerinin Oluşturulması ve Analiz Edilmesi
 ###############################################################################################
 
 # regex : Bu bir yaklaşım. Frequency 5 olan ve recency si 5 olana campion yaz.
@@ -99,12 +94,9 @@ seg_map = {r'[1-2][1-2]': 'hibernating',
            r'5[4-5]': 'champions'
 }
 
-rfm['segment']= rfm['RFM_SCORE'].replace(seg_map, regex=True)
+rfm['segment']= rfm['RF_SCORE'].replace(seg_map, regex=True)
 
 rfm[['segment', 'recency', 'frequency', 'monetary']].groupby('segment').agg(['mean', 'count'])
-
-rfm[rfm['segment'] =="need_attention"].head()
-rfm[rfm['segment'] =="need_attention"].index
 
 new_df = pd.DataFrame()
 new_df["new_customers"] = rfm[rfm["segment"] == "new_customers"].index
@@ -112,7 +104,7 @@ new_df["new_customers"] = new_df["new_customers"].astype(int)
 new_df.to_csv("new_customers.csv")
 
 ##############################################################################################
-# 7. Tüm Sürecin Fonksiyonlaştırılması
+# 6. Tüm Sürecin Fonksiyonlaştırılması
 ###############################################################################################
 
 def create_rfm(dataframe, csv=False):
@@ -136,7 +128,7 @@ def create_rfm(dataframe, csv=False):
     rfm["monetary_score"] = pd.qcut(rfm['monetary'], 5, labels=[1, 2, 3, 4, 5])
 
     #cltv_df skorlarının kategroik değere dönüştürülmesi ve df'e eklenmesi
-    rfm["RFM_SCORE"] = (rfm['recency_score'].astype(str) + rfm['frequency_score'].astype(str))
+    rfm["RF_SCORE"] = (rfm['recency_score'].astype(str) + rfm['frequency_score'].astype(str))
 
     #Segmentlerin İsimlendirilmesi
     seg_map = {r'[1-2][1-2]': 'hibernating',
@@ -151,7 +143,7 @@ def create_rfm(dataframe, csv=False):
                r'5[4-5]': 'champions'
                }
 
-    rfm['segment'] = rfm['RFM_SCORE'].replace(seg_map, regex=True)
+    rfm['segment'] = rfm['RF_SCORE'].replace(seg_map, regex=True)
     rfm = rfm[['segment', 'recency', 'frequency', 'monetary']]
     rfm.index = rfm.index.astype(int)
 
@@ -162,7 +154,5 @@ def create_rfm(dataframe, csv=False):
 
 
 df = df_.copy()
-df.head()
-
 rfm_new = create_rfm(df)
 rfm_new.head()
